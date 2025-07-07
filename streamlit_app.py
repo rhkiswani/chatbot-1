@@ -1,7 +1,7 @@
 import streamlit as st
 from openai import OpenAI
 
-st.title("💬 FANG Mock Interview (Text-based)")
+st.title("💬 FANNG Mock Interview")
 
 role = st.text_input("🎯 Target Role", placeholder="e.g., Software Engineer")
 company = st.text_input("🏢 Target Company", placeholder="e.g., Google")
@@ -47,6 +47,11 @@ if role and company:
         st.session_state.awaiting_question = True
         st.session_state.final_feedback = None
 
+    # Display all chat messages
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
     # Ask next question
     if st.session_state.awaiting_question and st.session_state.question_index < MAX_QUESTIONS:
         st.session_state.messages.append({
@@ -63,19 +68,30 @@ if role and company:
         st.session_state.messages.append({"role": "assistant", "content": question})
         st.session_state.awaiting_question = False
 
-    # Use a form to capture answer and clear input on submit
-    with st.form(key="answer_form", clear_on_submit=True):
-        answer = st.text_input("Your answer:")
-        submitted = st.form_submit_button("Submit answer")
+    # Show answer form only if waiting for answer and questions remain
+    if not st.session_state.awaiting_question and st.session_state.question_index < MAX_QUESTIONS:
+        input_key = f"answer_input_{st.session_state.question_index}"
 
-    if submitted and answer and not st.session_state.awaiting_question:
-        st.chat_message("user").markdown(answer)
-        st.session_state.messages.append({"role": "user", "content": answer})
-        st.session_state.answers.append(answer)
-        st.session_state.question_index += 1
-        st.session_state.awaiting_question = True
+        with st.form(key="answer_form", clear_on_submit=True):
+            if input_key not in st.session_state:
+                st.session_state[input_key] = ""
 
-    # Final feedback
+            answer = st.text_input("Your answer:", key=input_key)
+            submitted = st.form_submit_button("Submit answer")
+
+        if submitted and st.session_state[input_key].strip():
+            user_answer = st.session_state[input_key].strip()
+            st.session_state.messages.append({"role": "user", "content": user_answer})
+            st.session_state.answers.append(user_answer)
+            st.session_state.question_index += 1
+            st.session_state.awaiting_question = True
+
+            # Clear input explicitly (optional due to clear_on_submit)
+            st.session_state[input_key] = ""
+
+            st.experimental_rerun()
+
+    # After all questions answered, generate feedback once
     if st.session_state.question_index == MAX_QUESTIONS and st.session_state.final_feedback is None:
         st.session_state.messages.append({
             "role": "user",
