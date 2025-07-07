@@ -1,7 +1,7 @@
 import streamlit as st
 from openai import OpenAI
 
-st.title("💬 FANNG Mock Interview")
+st.title("💬 FANG Mock Interview")
 
 role = st.text_input("🎯 Target Role", placeholder="e.g., Software Engineer")
 company = st.text_input("🏢 Target Company", placeholder="e.g., Google")
@@ -72,10 +72,11 @@ if role and company:
     if not st.session_state.awaiting_question and st.session_state.question_index < MAX_QUESTIONS:
         input_key = f"answer_input_{st.session_state.question_index}"
 
-        with st.form(key="answer_form", clear_on_submit=True):
-            if input_key not in st.session_state:
-                st.session_state[input_key] = ""
+        # Initialize input key only once
+        if input_key not in st.session_state:
+            st.session_state[input_key] = ""
 
+        with st.form(key="answer_form", clear_on_submit=True):
             answer = st.text_input("Your answer:", key=input_key)
             submitted = st.form_submit_button("Submit answer")
 
@@ -85,9 +86,6 @@ if role and company:
             st.session_state.answers.append(user_answer)
             st.session_state.question_index += 1
             st.session_state.awaiting_question = True
-
-            # Clear input explicitly (optional due to clear_on_submit)
-            st.session_state[input_key] = ""
 
             st.experimental_rerun()
 
