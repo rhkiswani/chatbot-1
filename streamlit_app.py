@@ -97,7 +97,7 @@ else:
         # Start mic
         webrtc_ctx = webrtc_streamer(
             key="live-audio",
-            mode="SENDONLY",
+            mode=WebRtcMode.SENDONLY,
             audio_receiver_size=1024,
             audio_processor_factory=AudioProcessor,
             media_stream_constraints={"audio": True, "video": False},
