@@ -3,3 +3,5 @@ openai
 streamlit-webrtc
 ffmpeg-python
 wave
+av
+numpy
