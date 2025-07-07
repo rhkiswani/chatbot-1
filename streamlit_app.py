@@ -1,7 +1,6 @@
 import streamlit as st
 from openai import OpenAI
 
-# Setup
 st.title("💬 FANG Mock Interview (Text-based)")
 
 role = st.text_input("🎯 Target Role", placeholder="e.g., Software Engineer")
@@ -64,18 +63,17 @@ if role and company:
         st.session_state.messages.append({"role": "assistant", "content": question})
         st.session_state.awaiting_question = False
 
-    # Input for answer
-    answer = st.text_input("Your answer:", key="answer_input")
+    # Use a form to capture answer and clear input on submit
+    with st.form(key="answer_form", clear_on_submit=True):
+        answer = st.text_input("Your answer:")
+        submitted = st.form_submit_button("Submit answer")
 
-    if answer and not st.session_state.awaiting_question:
+    if submitted and answer and not st.session_state.awaiting_question:
         st.chat_message("user").markdown(answer)
         st.session_state.messages.append({"role": "user", "content": answer})
         st.session_state.answers.append(answer)
         st.session_state.question_index += 1
         st.session_state.awaiting_question = True
-
-        # Clear input by rerunning the app
-        st.experimental_rerun()
 
     # Final feedback
     if st.session_state.question_index == MAX_QUESTIONS and st.session_state.final_feedback is None:
