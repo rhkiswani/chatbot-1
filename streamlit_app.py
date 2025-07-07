@@ -94,7 +94,6 @@ if role and company:
     # Start audio stream
     webrtc_ctx = webrtc_streamer(
         key="voice-interview",
-        mode="sendonly",
         audio_receiver_size=1024,
         audio_processor_factory=AudioProcessor,
         media_stream_constraints={"audio": True, "video": False},
