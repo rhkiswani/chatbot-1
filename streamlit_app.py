@@ -93,7 +93,6 @@ else:
         # Mic widget
         webrtc_ctx = webrtc_streamer(
             key="speech",
-            mode="sendonly",
             audio_receiver_size=1024,
             audio_processor_factory=AudioProcessor,
             media_stream_constraints={"audio": True, "video": False},
