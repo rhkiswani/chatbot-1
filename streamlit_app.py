@@ -73,7 +73,9 @@ if role and company:
         st.session_state.answers.append(answer)
         st.session_state.question_index += 1
         st.session_state.awaiting_question = True
-        st.session_state["answer_input"] = ""  # clear input
+
+        # Clear input by rerunning the app
+        st.experimental_rerun()
 
     # Final feedback
     if st.session_state.question_index == MAX_QUESTIONS and st.session_state.final_feedback is None:
