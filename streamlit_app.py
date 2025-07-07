@@ -1,79 +1,52 @@
 import streamlit as st
 from openai import OpenAI
 
-# App title and description
-st.title("🎯 FANG-Style Mock Interviewer")
+# Set page title
+st.title("🧠 FANG-Style Structured Mock Interview")
+
 st.write(
-    "This is an AI-powered mock interviewer simulating a senior engineer from top-tier tech companies "
-    "(e.g., Amazon, Google, Meta). It tailors questions based on your target **role** and **company**, "
-    "asks follow-ups, and provides rankings and feedback."
+    "This app simulates a structured mock interview for top tech companies (e.g., Google, Meta, Amazon). "
+    "After 5 questions, you'll receive a final score and feedback summary based on your answers."
 )
 
-# Inputs for customization
-role = st.text_input("🧑‍💻 Target Role", placeholder="e.g., Software Engineer")
-company = st.text_input("🏢 Target Company", placeholder="e.g., Amazon")
+# Input fields
+role = st.text_input("Target Role", placeholder="e.g., Software Engineer")
+company = st.text_input("Target Company", placeholder="e.g., Google")
 
-# Ensure secrets are configured
+# Constants
+MAX_QUESTIONS = 5
+
+# OpenAI setup
 if "openai_api_key" not in st.secrets:
-    st.error("Missing OpenAI API key. Please add it to your Streamlit secrets.", icon="🚫")
+    st.error("Missing OpenAI API key. Please add it to your Streamlit secrets.")
 else:
     client = OpenAI(api_key=st.secrets["openai_api_key"])
 
-    def get_prompt(role: str, company: str) -> str:
-        company_lower = company.lower()
-        if "amazon" in company_lower:
-            values = "Amazon’s Leadership Principles such as Customer Obsession, Ownership, and Bias for Action"
-        elif "google" in company_lower:
-            values = "Google’s focus on innovation, scalability, and data-driven engineering"
-        elif "meta" in company_lower or "facebook" in company_lower:
-            values = "Meta's emphasis on impact, moving fast, and bold decision making"
-        elif "netflix" in company_lower:
-            values = "Netflix’s culture of freedom, responsibility, and high performance"
-        elif "apple" in company_lower:
-            values = "Apple’s attention to detail, cross-functional collaboration, and product excellence"
+    def get_company_values(company_name):
+        name = company_name.lower()
+        if "amazon" in name:
+            return "Amazon’s Leadership Principles such as Customer Obsession, Ownership, and Bias for Action"
+        elif "google" in name:
+            return "Google’s focus on innovation, scalability, and data-driven decision making"
+        elif "meta" in name or "facebook" in name:
+            return "Meta’s focus on impact, bold ideas, and rapid iteration"
+        elif "netflix" in name:
+            return "Netflix’s culture of freedom, responsibility, and excellence"
+        elif "apple" in name:
+            return "Apple’s emphasis on design, quality, and cross-functional collaboration"
         else:
-            values = "best practices from top-tier engineering organizations"
+            return "industry best practices from top-tier engineering companies"
 
+    def system_prompt(role, company):
+        values = get_company_values(company)
         return (
-            f"You are a senior engineer at {company.title()} conducting a mock interview for a candidate applying for a {role} role. "
-            f"Tailor your questions based on {values}. Ask a mix of technical and behavioral questions, "
-            "probe deeper with realistic follow-ups, and simulate an authentic FANG-style interview process. "
-            "After each candidate response, provide a score (1-5) and detailed feedback to help them improve."
+            f"You are a senior engineer at {company.title()} conducting a structured mock interview "
+            f"for a candidate applying to a {role} position. The interview should include {MAX_QUESTIONS} questions: "
+            "a mix of technical and behavioral. For each answer, provide a score from 1–5 and detailed feedback. "
+            "Ask only one question at a time. After all questions are answered, give a final rating with summary feedback."
         )
 
-    # Start the interview automatically when role and company are filled
+    # Initialize session state
     if role and company:
         if "messages" not in st.session_state:
-            # Initialize system and assistant messages
             st.session_state.messages = [
-                {"role": "system", "content": get_prompt(role, company)},
-                {"role": "assistant", "content": (
-                    f"👋 Hi! Welcome to your mock interview for the **{role}** role at **{company.title()}**.\n\n"
-                    "Let’s get started. First question:\n\n"
-                    "Tell me about a time when you had to make a tough technical decision under time pressure. What was the context, and how did you approach it?"
-                )}
-            ]
-
-    # Display previous messages
-    if "messages" in st.session_state:
-        for msg in st.session_state.messages[1:]:  # Skip the system prompt
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
-
-        # User input
-        if user_input := st.chat_input("Your response..."):
-            st.session_state.messages.append({"role": "user", "content": user_input})
-            with st.chat_message("user"):
-                st.markdown(user_input)
-
-            # Assistant response
-            stream = client.chat.completions.create(
-                model="gpt-4",
-                messages=st.session_state.messages,
-                stream=True,
-            )
-            with st.chat_message("assistant"):
-                response = st.write_stream(stream)
-            st.session_state.messages.append({"role": "assistant", "content": response})
-    else:
-        st.info("Please enter your target role and company above to begin.")
