@@ -1,25 +1,16 @@
 import streamlit as st
 from openai import OpenAI
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
-import av
-import numpy as np
-import tempfile
-import os
-import wave
 
 # Setup
-st.title("🎤 FANG Mock Interview (Live Voice)")
-st.write("Answer questions with your voice. The app will transcribe your responses using OpenAI Whisper.")
+st.title("💬 FANG Mock Interview (Text-based)")
 
 role = st.text_input("🎯 Target Role", placeholder="e.g., Software Engineer")
 company = st.text_input("🏢 Target Company", placeholder="e.g., Google")
 
 MAX_QUESTIONS = 5
-MIN_DURATION_SECONDS = 30
 
-# OpenAI setup
 if "openai_api_key" not in st.secrets:
-    st.error("Add your OpenAI key to `.streamlit/secrets.toml`")
+    st.error("Add your OpenAI API key to `.streamlit/secrets.toml`")
     st.stop()
 
 client = OpenAI(api_key=st.secrets["openai_api_key"])
@@ -47,25 +38,6 @@ def system_prompt(role, company):
         f"After all answers, provide detailed feedback and a score out of 25."
     )
 
-# Audio Processor
-class AudioProcessor(AudioProcessorBase):
-    def __init__(self) -> None:
-        self.frames = []
-
-    def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
-        pcm = frame.to_ndarray().flatten().astype(np.int16).tobytes()
-        self.frames.append(pcm)
-        return frame
-
-    def get_wav(self):
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-        with wave.open(temp_file, 'wb') as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(2)  # 16-bit
-            wf.setframerate(16000)
-            wf.writeframes(b''.join(self.frames))
-        return temp_file.name
-
 if role and company:
     st.markdown(f"### Welcome to your {role} mock interview at {company}! 🎉")
 
@@ -92,40 +64,16 @@ if role and company:
         st.session_state.messages.append({"role": "assistant", "content": question})
         st.session_state.awaiting_question = False
 
-    # Mic recording section
-    st.markdown("#### 🎙️ Please speak your answer below (min 30 seconds)")
+    # Input for answer
+    answer = st.text_input("Your answer:", key="answer_input")
 
-    webrtc_ctx = webrtc_streamer(
-        key="speech",
-        mode=WebRtcMode.SENDONLY,
-        audio_receiver_size=1024,
-        audio_processor_factory=AudioProcessor,
-        media_stream_constraints={"audio": True, "video": False},
-        async_processing=True,
-    )
-
-    # Submit
-    if st.button("✅ Done"):
-        if webrtc_ctx.audio_processor:
-            st.info("Processing your answer...")
-            wav_path = webrtc_ctx.audio_processor.get_wav()
-            duration = os.path.getsize(wav_path) / (16000 * 2)
-
-            if duration < MIN_DURATION_SECONDS:
-                st.warning(f"Your answer was only {int(duration)} seconds. Please speak for at least {MIN_DURATION_SECONDS} seconds.")
-            else:
-                with open(wav_path, "rb") as f:
-                    transcript = client.audio.transcriptions.create(
-                        model="whisper-1",
-                        file=f
-                    )
-                os.remove(wav_path)
-                answer = transcript.text
-                st.chat_message("user").markdown(answer)
-                st.session_state.messages.append({"role": "user", "content": answer})
-                st.session_state.answers.append(answer)
-                st.session_state.question_index += 1
-                st.session_state.awaiting_question = True
+    if answer and not st.session_state.awaiting_question:
+        st.chat_message("user").markdown(answer)
+        st.session_state.messages.append({"role": "user", "content": answer})
+        st.session_state.answers.append(answer)
+        st.session_state.question_index += 1
+        st.session_state.awaiting_question = True
+        st.session_state["answer_input"] = ""  # clear input
 
     # Final feedback
     if st.session_state.question_index == MAX_QUESTIONS and st.session_state.final_feedback is None:
