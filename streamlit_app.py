@@ -1,6 +1,6 @@
 import streamlit as st
 from openai import OpenAI
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
 import av
 import numpy as np
 import tempfile
