@@ -50,3 +50,74 @@ else:
     if role and company:
         if "messages" not in st.session_state:
             st.session_state.messages = [
+                {"role": "system", "content": system_prompt(role, company)}
+            ]
+            st.session_state.question_count = 0
+            st.session_state.feedback = []
+
+        # Display existing conversation
+        for msg in st.session_state.messages[1:]:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+
+        # If waiting for a new question and under limit
+        if st.session_state.question_count < MAX_QUESTIONS and (
+            len(st.session_state.messages) == 1 or st.session_state.messages[-1]["role"] != "assistant"
+        ):
+            # Ask next interview question
+            question_request = (
+                f"Ask question #{st.session_state.question_count + 1} for the {role} role at {company}."
+            )
+            st.session_state.messages.append({"role": "user", "content": question_request})
+            stream = client.chat.completions.create(
+                model="gpt-4",
+                messages=st.session_state.messages,
+                stream=True,
+            )
+            with st.chat_message("assistant"):
+                response = st.write_stream(stream)
+            st.session_state.messages.append({"role": "assistant", "content": response})
+
+        # User input: candidate's answer
+        if user_input := st.chat_input("Your answer..."):
+            st.session_state.messages.append({"role": "user", "content": user_input})
+            with st.chat_message("user"):
+                st.markdown(user_input)
+
+            # Get feedback and score for that answer
+            feedback_prompt = (
+                "Please evaluate the candidate's response. Give a score (1–5) and detailed feedback."
+            )
+            st.session_state.messages.append({"role": "user", "content": feedback_prompt})
+            stream = client.chat.completions.create(
+                model="gpt-4",
+                messages=st.session_state.messages,
+                stream=True,
+            )
+            with st.chat_message("assistant"):
+                feedback = st.write_stream(stream)
+            st.session_state.messages.append({"role": "assistant", "content": feedback})
+
+            # Store feedback summary
+            st.session_state.feedback.append(feedback)
+            st.session_state.question_count += 1
+
+        # After all questions are answered
+        if st.session_state.question_count == MAX_QUESTIONS:
+            if "final_score_given" not in st.session_state:
+                st.session_state.messages.append({
+                    "role": "user",
+                    "content": (
+                        "Now that the candidate answered all questions, give a final score (out of 25) "
+                        "and provide an overall summary of strengths and areas for improvement."
+                    )
+                })
+                stream = client.chat.completions.create(
+                    model="gpt-4",
+                    messages=st.session_state.messages,
+                    stream=True,
+                )
+                with st.chat_message("assistant"):
+                    final_summary = st.write_stream(stream)
+                st.session_state.messages.append({"role": "assistant", "content": final_summary})
+                st.session_state.final_score_given = True
