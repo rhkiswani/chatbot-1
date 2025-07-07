@@ -1,23 +1,21 @@
 import streamlit as st
 from openai import OpenAI
+import tempfile
+import os
 
-# Page setup
-st.title("🧠 FANG-Style Mock Interview (Structured)")
-st.write(
-    "Simulates a real interview for top companies. You’ll get 5 tailored questions for your role and company, "
-    "then receive detailed feedback and scoring at the end."
-)
+# Setup page
+st.title("🎙️ Voice-Based FANG Mock Interview")
+st.write("Speak your answers to each question. After 5 questions, you’ll get detailed feedback and a final score.")
 
-# Input fields
+# Inputs
 role = st.text_input("🎯 Target Role", placeholder="e.g., Software Engineer")
 company = st.text_input("🏢 Target Company", placeholder="e.g., Google")
 
-# Constants
 MAX_QUESTIONS = 5
 
 # OpenAI setup
 if "openai_api_key" not in st.secrets:
-    st.error("Please add your OpenAI API key to `.streamlit/secrets.toml`", icon="🔑")
+    st.error("Please add your OpenAI API key to `.streamlit/secrets.toml`")
 else:
     client = OpenAI(api_key=st.secrets["openai_api_key"])
 
@@ -40,10 +38,9 @@ else:
         values = get_company_values(company)
         return (
             f"You are a senior engineer at {company.title()} conducting a structured mock interview "
-            f"for a candidate applying to a {role} position. The interview should consist of {MAX_QUESTIONS} questions: "
-            f"a mix of technical and behavioral. Ask one question at a time. Wait for the answer before asking the next. "
-            f"Do not give any feedback or scores until the end. After all answers are collected, give detailed feedback and "
-            f"a final rating (score out of 25), broken down by question."
+            f"for a candidate applying to a {role} position. Ask {MAX_QUESTIONS} questions, one at a time. "
+            f"Do not give any feedback until the end. After all questions are answered, provide detailed feedback "
+            f"and a final score out of 25."
         )
 
     # Initialize state
@@ -55,42 +52,58 @@ else:
             st.session_state.awaiting_question = True
             st.session_state.final_feedback = None
 
-        # Show past conversation (except system prompt)
+        # Show chat history
         for msg in st.session_state.messages[1:]:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-        # Ask a question if needed
+        # Ask next question
         if st.session_state.awaiting_question and st.session_state.question_index < MAX_QUESTIONS:
-            question_prompt = f"Ask question #{st.session_state.question_index + 1} for the candidate."
-            st.session_state.messages.append({"role": "user", "content": question_prompt})
+            ask = f"Ask question #{st.session_state.question_index + 1}"
+            st.session_state.messages.append({"role": "user", "content": ask})
             stream = client.chat.completions.create(
                 model="gpt-4",
                 messages=st.session_state.messages,
                 stream=True,
             )
             with st.chat_message("assistant"):
-                response = st.write_stream(stream)
-            st.session_state.messages.append({"role": "assistant", "content": response})
+                question = st.write_stream(stream)
+            st.session_state.messages.append({"role": "assistant", "content": question})
             st.session_state.awaiting_question = False
 
-        # Accept user input
+        # Upload audio response
         if not st.session_state.awaiting_question and st.session_state.question_index < MAX_QUESTIONS:
-            if user_input := st.chat_input("Your answer..."):
-                st.session_state.messages.append({"role": "user", "content": user_input})
-                with st.chat_message("user"):
-                    st.markdown(user_input)
-                st.session_state.answers.append(user_input)
-                st.session_state.question_index += 1
-                st.session_state.awaiting_question = True
+            audio_file = st.file_uploader("🎤 Upload your answer (MP3/WAV)", type=["mp3", "wav"])
+            if audio_file:
+                with st.spinner("Transcribing your answer..."):
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_file:
+                        tmp_file.write(audio_file.read())
+                        tmp_path = tmp_file.name
 
-        # If all questions are answered, generate final feedback
+                    with open(tmp_path, "rb") as f:
+                        transcription = client.audio.transcriptions.create(
+                            model="whisper-1",
+                            file=f
+                        )
+
+                    user_answer = transcription.text
+                    os.remove(tmp_path)
+
+                    st.session_state.messages.append({"role": "user", "content": user_answer})
+                    with st.chat_message("user"):
+                        st.markdown(user_answer)
+
+                    st.session_state.answers.append(user_answer)
+                    st.session_state.question_index += 1
+                    st.session_state.awaiting_question = True
+
+        # Final review
         if st.session_state.question_index == MAX_QUESTIONS and st.session_state.final_feedback is None:
             st.session_state.messages.append({
                 "role": "user",
                 "content": (
-                    "Now that the candidate has answered all questions, please evaluate their performance. "
-                    "Provide a score out of 25 (5 per question) and a detailed summary of strengths and areas to improve."
+                    "The candidate has answered all questions. Please provide detailed feedback for each question, "
+                    "a score out of 25, and an overall assessment of strengths and improvement areas."
                 )
             })
             stream = client.chat.completions.create(
@@ -99,6 +112,6 @@ else:
                 stream=True,
             )
             with st.chat_message("assistant"):
-                final = st.write_stream(stream)
-            st.session_state.messages.append({"role": "assistant", "content": final})
-            st.session_state.final_feedback = final
+                feedback = st.write_stream(stream)
+            st.session_state.messages.append({"role": "assistant", "content": feedback})
+            st.session_state.final_feedback = feedback
