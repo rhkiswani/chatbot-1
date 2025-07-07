@@ -1,6 +1,6 @@
 import streamlit as st
 from openai import OpenAI
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
 import av
 import numpy as np
 import tempfile
@@ -96,12 +96,12 @@ else:
 
         # Start mic
         webrtc_ctx = webrtc_streamer(
-            key="live-audio",
+            key="interview",
             mode=WebRtcMode.SENDONLY,
-            audio_receiver_size=1024,
             audio_processor_factory=AudioProcessor,
             media_stream_constraints={"audio": True, "video": False},
-            async_processing=True
+            async_processing=True,
+            rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
         )
 
         def record_and_transcribe():
