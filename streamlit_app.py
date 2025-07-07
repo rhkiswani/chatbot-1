@@ -87,7 +87,7 @@ if role and company:
             st.session_state.question_index += 1
             st.session_state.awaiting_question = True
 
-            st.experimental_rerun()
+            
 
     # After all questions answered, generate feedback once
     if st.session_state.question_index == MAX_QUESTIONS and st.session_state.final_feedback is None:
